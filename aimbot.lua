@@ -1,170 +1,114 @@
--- 📦 Загрузка Rayfield UI
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+-- Загрузка Rayfield UI
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "⚡️ GoatedTeeHub - Enhanced ⚡️",
-    LoadingTitle = "Loading GoatedTeeHub...",
-    LoadingSubtitle = "By TheGoatedTee + ChatGPT",
+    Name = "Shoot Players GUI",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "By ChatGPT",
     ConfigurationSaving = {
-        Enabled = true,
-        FileName = "GoatedTeeHubEnhanced"
+        Enabled = false
     },
     Discord = {
         Enabled = false
     },
-    KeySystem = true,
-    KeySettings = {
-        Title = "Enter Key",
-        Subtitle = "Use: TheGoatedTee",
-        Key = { "TheGoatedTee" }
-    }
+    KeySystem = false
 })
 
-local MainTab = Window:CreateTab("💥 Main", 4483362458)
+local MainTab = Window:CreateTab("Main", 4483362458)
 
--- 🔫 Aimbot
-local aimEnabled = false
-local RunService = game:GetService("RunService")
+-- Получение сервисов
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local UserInputService = game:GetService("UserInputService")
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
 
-local fov = 150
-local smoothing = 0.15
-local FOVCircle
-
-function GetClosestTarget()
-    local closest = nil
-    local shortestDistance = fov
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-            local head = player.Character.Head
-            local screenPoint, onScreen = Camera:WorldToScreenPoint(head.Position)
-            if onScreen then
-                local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                if distance < shortestDistance then
-                    closest = head
-                    shortestDistance = distance
-                end
-            end
-        end
-    end
-    return closest
-end
+-- 📌 Auto Shoot
+local AutoShoot = false
+local ShootLoop
 
 MainTab:CreateToggle({
-    Name = "🎯 Aimbot (Hold Right Click)",
+    Name = "Auto Shoot",
     CurrentValue = false,
-    Flag = "aimbot_toggle",
     Callback = function(value)
-        aimEnabled = value
-        if value and not FOVCircle then
-            FOVCircle = Drawing.new("Circle")
-            FOVCircle.Color = Color3.fromRGB(255, 0, 0)
-            FOVCircle.Radius = fov
-            FOVCircle.Thickness = 1.5
-            FOVCircle.Transparency = 0.8
-            FOVCircle.Filled = false
-        elseif not value and FOVCircle then
-            FOVCircle:Remove()
-            FOVCircle = nil
+        AutoShoot = value
+        if value then
+            ShootLoop = RunService.RenderStepped:Connect(function()
+                local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool and tool:FindFirstChild("RemoteEvent") then
+                    tool.RemoteEvent:FireServer()
+                end
+            end)
+        else
+            if ShootLoop then
+                ShootLoop:Disconnect()
+                ShootLoop = nil
+            end
         end
     end,
 })
 
-RunService.RenderStepped:Connect(function()
-    if aimEnabled then
-        if FOVCircle then
-            FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-        end
-        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-            local target = GetClosestTarget()
-            if target then
-                local aimPosition = target.Position
-                local camPos = Camera.CFrame.Position
-                local newCF = CFrame.new(camPos, aimPosition)
-                Camera.CFrame = Camera.CFrame:Lerp(newCF, smoothing)
-            end
-        end
-    end
-end)
-
--- 🧍 WalkSpeed & JumpPower
+-- 🚀 WalkSpeed
 MainTab:CreateSlider({
-    Name = "🏃 WalkSpeed",
-    Range = {16, 200},
+    Name = "WalkSpeed",
+    Range = {16, 300},
     Increment = 1,
     CurrentValue = 16,
     Callback = function(value)
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.WalkSpeed = value
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = value
         end
     end,
 })
 
+-- 🦘 JumpPower
 MainTab:CreateSlider({
-    Name = "🚀 JumpPower",
+    Name = "JumpPower",
     Range = {50, 300},
-    Increment = 1,
-    CurrentValue = 100,
+    Increment = 5,
+    CurrentValue = 50,
     Callback = function(value)
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.JumpPower = value
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.JumpPower = value
         end
     end,
 })
 
--- 🔄 Spinbot
-MainTab:CreateSlider({
-    Name = "🌀 Spinbot Speed",
-    Range = {0, 100},
-    Increment = 1,
-    CurrentValue = 0,
-    Callback = function(value)
-        local char = LocalPlayer.Character
-        if not char then return end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if root then
-            local existing = root:FindFirstChild("Spinbot")
-            if existing then existing:Destroy() end
-            if value > 0 then
-                local vel = Instance.new("AngularVelocity")
-                vel.Attachment0 = root:WaitForChild("RootAttachment")
-                vel.MaxTorque = math.huge
-                vel.AngularVelocity = Vector3.new(0, value, 0)
-                vel.Name = "Spinbot"
-                vel.Parent = root
+-- 🛡️ GodMode (анти-отдача + бесконечное хп)
+MainTab:CreateButton({
+    Name = "Enable GodMode",
+    Callback = function()
+        local function god()
+            -- Удаляем все фейковые силы (например BodyVelocity и др.)
+            for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+                if v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") or v:IsA("BodyForce") then
+                    v:Destroy()
+                end
             end
+
+            -- Бесконечное здоровье
+            if LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid.MaxHealth = math.huge
+                LocalPlayer.Character.Humanoid.Health = math.huge
+            end
+
+            -- Анти-отталкивание
+            LocalPlayer.Character.Humanoid.PlatformStand = false
+            LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
         end
+
+        god()
+        -- Авто-господство
+        LocalPlayer.CharacterAdded:Connect(function(char)
+            char:WaitForChild("Humanoid")
+            task.wait(0.5)
+            god()
+        end)
+
+        Rayfield:Notify({
+            Title = "GodMode Enabled",
+            Content = "Вы неуязвим (пока скрипт активен).",
+            Duration = 5
+        })
     end,
 })
-
--- 🧠 ESP
-MainTab:CreateButton({
-    Name = "🔍 Enable ESP",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/Lucasfin000/SpaceHub/main/UESP"))()
-    end,
-})
-
--- 🔫 TriggerBot
-MainTab:CreateButton({
-    Name = "🔫 TriggerBot",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/UselessManS90/TriggerBot/main/TriggBot"))()
-    end,
-})
-
--- ❌ Exit script
-MainTab:CreateButton({
-    Name = "❌ Unload Script",
-    Callback = function()
-        if FOVCircle then FOVCircle:Remove() end
-        Rayfield:Destroy()
-    end,
-})
-
-print("✅ GoatedTeeHub Enhanced Loaded")
