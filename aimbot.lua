@@ -26,6 +26,7 @@ function GetClosestTarget()
     return closest
 end
 
+-- Перехватываем FireServer
 local mt = getrawmetatable(game)
 local old = mt.__namecall
 setreadonly(mt, false)
@@ -34,11 +35,13 @@ mt.__namecall = newcclosure(function(self, ...)
     local args = {...}
     local method = getnamecallmethod()
 
+    -- Проверяем, вызывается ли FireServer у RemoteEvent "S"
     if tostring(self) == "S" and method == "FireServer" then
         local target = GetClosestTarget()
         if target then
             local predicted = target.Position + target.Velocity * Prediction
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, predicted) -- "безшумная" наводка
+            args[1] = predicted -- подменяем координату при выстреле
+            return old(self, unpack(args)) -- вызываем оригинальный метод с новыми аргументами
         end
     end
 
