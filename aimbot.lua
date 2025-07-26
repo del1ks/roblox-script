@@ -4,7 +4,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "Shoot Players GUI",
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "By ChatGPT",
+    LoadingSubtitle = "done",
     ConfigurationSaving = { Enabled = false },
     Discord = { Enabled = false },
     KeySystem = false
